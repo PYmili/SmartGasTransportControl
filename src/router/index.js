@@ -19,13 +19,13 @@ const router = createRouter({
       children: [
         {
           path: '',
-          redirect: 'area'
+          redirect: 'pipline_table'
         },
-        { 
-          path: '/area',
-          name: 'area',
-          component: () => import('../components/control/AreeManagement.vue') 
-        },
+        // { 
+        //   path: '/area',
+        //   name: 'area',
+        //   component: () => import('../components/control/AreeManagement.vue') 
+        // },
         {
           path: '/route',
           name: 'route',

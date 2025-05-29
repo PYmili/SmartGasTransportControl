@@ -170,7 +170,12 @@ const handleLogin = async () => {
       ElMessage.success("登录成功");
 
       // 设置状态为登录，并保存jwtToken
-      store.dispatch('login', response.data.data);
+      await store.dispatch('login', response.data.data);
+
+      // 设置用户信息
+      await store.dispatch('setUserInfo', {
+        username: loginForm.username
+      });
 
       // 跳转页面
       await router.push("/control");
@@ -181,9 +186,8 @@ const handleLogin = async () => {
     // 错误处理
     if (error.response) {
       // 请求已发出，服务器响应状态码非 2xx
-      ElMessage.error(
-        `错误代码：${error.response.status}，${error.response.data.message}`
-      );
+      console.error("用户登录报错：", error);
+      ElMessage.error(error.response.data.message);
     } else if (error.request) {
       // 请求已发出但没有收到响应
       ElMessage.error("服务器未响应，请检查网络连接");

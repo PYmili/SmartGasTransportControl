@@ -18,13 +18,13 @@
       <div class="user-section" :class="{ collapsed: isCollapse }">
         <el-avatar 
           :size="isCollapse ? 32 : 48" 
-          src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png"
+          :src="UserPng"
           class="user-avatar"
         />
         <transition name="fade">
           <div v-if="!isCollapse" class="user-info">
-            <div class="user-name">John Doe</div>
-            <div class="user-role">Administrator</div>
+            <div class="user-name">{{ store.getters.userInformation.username }}</div>
+            <div class="user-role">管理员</div>
           </div>
         </transition>
       </div>
@@ -126,16 +126,18 @@
           </el-breadcrumb>
         </div>
         <div class="header-right">
-          <el-badge :value="5" class="notification-badge">
+          <!-- 消息提示 -->
+          <!-- <el-badge :value="5" class="notification-badge">
             <el-icon :size="20" class="header-icon">
               <component :is="Bell" />
             </el-icon>
-          </el-badge>
+          </el-badge> -->
+          <!-- 右上角用户 -->
           <el-dropdown trigger="click" class="user-dropdown">
             <div class="header-user">
               <el-avatar 
                 :size="32" 
-                src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png"
+                :src="UserPng"
               />
               <el-icon class="dropdown-icon">
                 <component :is="ArrowDown" />
@@ -143,9 +145,10 @@
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item>个人中心</el-dropdown-item>
+                <!-- <el-dropdown-item>个人中心</el-dropdown-item>
                 <el-dropdown-item>账户设置</el-dropdown-item>
-                <el-dropdown-item divided>退出登录</el-dropdown-item>
+                <el-dropdown-item divided>退出登录</el-dropdown-item> -->
+                <el-dropdown-item @click="handleOutlogin">退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -179,9 +182,10 @@ import {
 import { useStore } from "vuex";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
+import UserPng from '@/assets/images/User.png';
 
 const isCollapse = ref(false);
-const activeMenu = ref("area");
+const activeMenu = ref("/pipline_table");
 const isDark = ref(false);
 // vuex
 const store = useStore();
@@ -196,6 +200,19 @@ const toggleTheme = () => {
   isDark.value = !isDark.value;
   document.documentElement.setAttribute('data-theme', isDark.value ? 'dark' : 'light');
   localStorage.setItem('theme', isDark.value ? 'dark' : 'light');
+};
+
+// 退出登录
+const handleOutlogin = async () => {
+  await store.dispatch('verifyJwt');
+  const islogged = store.getters.isUserLoggedIn;
+  if (islogged === true) {
+    await store.dispatch('logout');
+    ElMessage.success('下次再见！');
+  } else {
+    ElMessage.error("未登录！");
+  }
+  await router.push('/login');
 };
 
 // 初始化

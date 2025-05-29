@@ -49,7 +49,7 @@
       <el-table-column prop="Difference" label="输差" align="center" width="100"/>
 
       <!-- 输差率 -->
-      <el-table-column prop="DifferenceRate" label="输差率" align="center" width="120" />
+      <el-table-column prop="DifferenceRate" label="输损率" align="center" width="120" />
     </el-table>
   </div>
 </template>
@@ -71,7 +71,7 @@ const tableRowClassName = ({ row }) => {
 };
 
 const handleRequestGetPipelineList = async () => {
-  const requestAddress = import.meta.env.VITE_API_HOST + "pipeline/list";
+  const requestAddress = import.meta.env.VITE_API_HOST + "/pipeline/list";
   try {
     const response = await axios.post(
       requestAddress,
@@ -96,7 +96,7 @@ const handleRequestGetPipelineList = async () => {
 };
 
 const handleRequestTableData = async (params) => {
-  const requestAddress = import.meta.env.VITE_API_HOST + "pipeline_data/get";
+  const requestAddress = import.meta.env.VITE_API_HOST + "/pipeline_data/get";
   try {
     const response = await axios.post(
       requestAddress,
@@ -136,9 +136,8 @@ onMounted(async () => {
     });
     // console.log(historicalDateMoment.format('YYYY-MM-DD HH:mm:ss'));
     
-    item.Difference = (item.airIntake - item.airOutlet).toFixed(5);
-    item.DifferenceRate = (item.Difference / item.airOutlet / 100).toFixed(5);
-
+    item.Difference = parseFloat((item.airIntake - item.airOutlet).toFixed(4));
+    item.DifferenceRate = parseFloat(((item.airIntake - item.airOutlet) / item.airIntake / 100).toFixed(4));
 
     // 计算偏差值
     let temperatureDeviation;
@@ -162,19 +161,19 @@ onMounted(async () => {
     const abnormalMessages = [];
 
     // 温度警告判断
-    if (Math.abs(temperatureDeviation) > 3) {
+    if (temperatureDeviation > 3 || temperatureDeviation < -3) {
       abnormalMessages.push(`温度偏差 ${temperatureDeviation.toFixed(2)}`);
       item.temperatureClass = 'data-status-error';
     }
 
     // 压力警告判断
-    if (Math.abs(pressureDeviation) > 1) {
+    if (pressureDeviation > 1 || pressureDeviation < -1) {
       abnormalMessages.push(`压力偏差 ${pressureDeviation.toFixed(2)}`);
       item.pressureClass = 'data-status-error';
     }
 
     // 差压警告判断
-    if (Math.abs(differentialDeviation) > 1) {
+    if (differentialDeviation > 1 || differentialDeviation < -1) {
       abnormalMessages.push(`差压偏差 ${differentialDeviation.toFixed(2)}`);
       item.differentialClass = 'data-status-error';
     }
@@ -197,14 +196,17 @@ onMounted(async () => {
       });
     }
 
+    console.log(item.DifferenceRate);
+
     // 输差率判断
-    if (item.DifferenceRate > 1 || item.DifferenceRate < -1) {
-      item.status = '异常';
-      item.statusClass = "data-status-error";
+    if (item.DifferenceRate > 0.001 || item.DifferenceRate < -0.001) {
+        item.status = '异常';
+        item.statusClass = "data-status-error";
     } else {
-      item.status = '正常';
-      item.statusClass = "data-status";
+        item.status = '正常';
+        item.statusClass = "data-status";
     }
+    item.DifferenceRate = String((item.DifferenceRate * 100).toFixed(2)) + '%';
   });
 });
 </script>

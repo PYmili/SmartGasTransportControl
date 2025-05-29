@@ -9,14 +9,21 @@
         <el-input v-model="form.username" />
       </el-form-item>
 
-      <el-form-item label="角色" prop="role">
-        <el-select v-model="form.role">
-          <el-option label="管理员" value="admin" />
-          <el-option label="操作员" value="operator" />
-        </el-select>
+      <!-- 密码输入框 -->
+      <el-form-item :label="dialogType === 'add' ? '密码' : '新密码'" prop="password">
+        <el-input v-model="form.password" type="password" show-password />
       </el-form-item>
 
-      <el-form-item label="邮箱" prop="email">
+      <!-- 选择是否可用 -->
+      <el-form-item label="是否可用" prop="action">
+        <el-radio-group v-model="form.action">
+          <el-radio :label="true">可用</el-radio>
+          <el-radio :label="false">不可用</el-radio>
+        </el-radio-group>
+      </el-form-item>
+
+      <!-- 编辑模式下显示邮箱 -->
+      <el-form-item v-if="dialogType === 'edit'" label="邮箱" prop="email">
         <el-input v-model="form.email" />
       </el-form-item>
     </el-form>
@@ -43,20 +50,35 @@ const formRef = ref(null)
 const dialogVisible = ref(props.modelValue)
 
 const form = reactive({
+  id: null,
   username: '',
-  role: '',
-  email: ''
+  password: '',
+  email: '',
+  action: true
 })
 
-const rules = {
+// 动态表单验证规则
+const rules = reactive({
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  role: [{ required: true, message: '请选择角色', trigger: 'change' }],
+  password: [
+    { 
+      required: props.dialogType === 'add', 
+      message: '请输入密码', 
+      trigger: 'blur' 
+    },
+    {
+      min: 5,
+      message: '密码长度至少为5个字符',
+      trigger: 'blur'
+    }
+  ],
   email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
+    { required: false, message: '请输入邮箱', trigger: 'blur' },
     { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
   ]
-}
+})
 
+// 监听props变化
 watch(() => props.modelValue, (val) => {
   dialogVisible.value = val
 })
@@ -68,9 +90,16 @@ watch(dialogVisible, (val) => {
   }
 })
 
+// 当前用户变化时更新表单
 watch(() => props.currentUser, (user) => {
   if (user) {
-    Object.assign(form, user)
+    Object.assign(form, {
+      id: user.id,
+      username: user.username,
+      password: '', // 密码不显示原始值
+      email: user.email || '',
+      action: user.action || true
+    })
   } else {
     formRef.value?.resetFields()
   }
@@ -80,7 +109,6 @@ const submitForm = async () => {
   try {
     await formRef.value.validate()
     emit('submit', { ...form })
-    dialogVisible.value = false
   } catch (error) {
     console.log('表单验证失败')
   }

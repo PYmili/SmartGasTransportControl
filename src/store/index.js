@@ -7,6 +7,7 @@ export default createStore({
       // 用户登录状态，默认为 false
       isLoggedIn: false,
       jwtToken: localStorage.getItem('jwt') || '',
+      userInfo: localStorage.getItem('userInfo') || {},
     };
   },
   mutations: {
@@ -18,6 +19,11 @@ export default createStore({
     SET_JWT_TOKEN(state, token) {
       state.jwtToken = token;
       localStorage.setItem('jwt', token);
+    },
+    // 设置userInfo数据
+    SET_USERINFO(state, userInfo) {
+      state.userInfo = userInfo;
+      localStorage.setItem("userInfo", userInfo);
     }
   },
   actions: {
@@ -32,7 +38,7 @@ export default createStore({
       commit('SET_JWT_TOKEN', '');
       localStorage.removeItem('jwt');
     },
-  // 验证 JWT
+    // 验证 JWT
     async verifyJwt({ commit, state }) {
       try {
         // 等待 verifyJwtRequest 的结果
@@ -43,10 +49,16 @@ export default createStore({
         console.error('Error verifying JWT:', error);
         commit('SET_LOGIN_STATUS', false);
       }
+    },
+    // 设置用户的信息
+    setUserInfo({ commit }, userInfo) {
+      commit('SET_USERINFO', userInfo);
     }
   },
   getters: {
     // 判断用户是否登录
-    isUserLoggedIn: (state) => state.isLoggedIn
+    isUserLoggedIn: (state) => state.isLoggedIn,
+    // 获取当前用户信息
+    userInformation: (state) => state.userInfo,
   }
 });
