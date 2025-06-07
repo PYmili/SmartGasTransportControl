@@ -1,5 +1,15 @@
 <template>
   <div class="table-container">
+    <!-- 时间选择器 -->
+    <el-date-picker
+      v-model="selectedTime"
+      type="datetime"
+      placeholder="选择时间"
+      format="YYYY-MM-DD HH:mm:ss"
+      value-format="YYYY-MM-DD HH:mm:ss"
+      @change="handleTimeChange"
+    />
+
     <el-table
       :data="tableData"
       border
@@ -66,6 +76,8 @@ const store = useStore();
 
 const tableData = ref([]);
 const pipelines = ref([]);
+const selectedTime = ref(moment().format('YYYY-MM-DD HH:mm:ss')); // 用于绑定时间选择器的值
+
 const tableRowClassName = ({ row }) => {
   return row.status === '异常' ? 'warning-row' : '';
 };
@@ -119,95 +131,115 @@ const handleRequestTableData = async (params) => {
   return [];
 };
 
-onMounted(async () => {
-  await handleRequestGetPipelineList();
-  // console.log(pipelines.value.map(item => item.name));
-  tableData.value = await handleRequestTableData({ 
-    pipelineNames: pipelines.value.map(item => item.name)
+// 当用户选择时间时触发
+const handleTimeChange = async () => {
+  if (!selectedTime.value) {
+    ElMessage.warning("请选择一个有效的时间！");
+    return;
+  }
+
+  // 获取指定时间的数据
+  tableData.value = await handleRequestTableData({
+    pipelineNames: pipelines.value.map(item => item.name),
+    dateTime: selectedTime.value
   });
 
-  // console.log(tableData.value);
-  tableData.value.filter(async item => {
-    const historicalDateMoment = moment(item.dateTime);
-    historicalDateMoment.subtract(1, 'year');
-    const historicalData = await handleRequestTableData({
-      pipelineName: item.pipelineName,
+  selectedTime.value = tableData.value[0].dateTime;
+
+  const historicalDateMoment = moment(tableData.value[0].dateTime);
+  historicalDateMoment.subtract(1, 'year');
+  let historicalData = [];
+  try {
+    historicalData = await handleRequestTableData({
+      pipelineNames: pipelines.value.map(item => item.name),
       dateTime: historicalDateMoment.format('YYYY-MM-DD HH:mm:ss')
     });
-    // console.log(historicalDateMoment.format('YYYY-MM-DD HH:mm:ss'));
-    
-    item.Difference = parseFloat((item.airIntake - item.airOutlet).toFixed(4));
-    item.DifferenceRate = parseFloat(((item.airIntake - item.airOutlet) / item.airIntake / 100).toFixed(4));
+  } catch(error) {
+    console.error(error);
+    ElMessage.error("请求错误！");
+    return;
+  }
 
-    // 计算偏差值
-    let temperatureDeviation;
-    let pressureDeviation;
-    let differentialDeviation;
-    historicalData.filter(i => {
-      if (i.pipelineName === item.pipelineName) {
-        temperatureDeviation = item.temperatures - i.temperatures;
-        pressureDeviation = item.pressure - i.pressure;
-        differentialDeviation = item.differentialPressure - i.differentialPressure;
-      }
-    });
-    
-    // console.log(item.pipelineName + 
-    //   `\n\t温度差：${temperatureDeviation}` + 
-    //   `\n\t压力差：${pressureDeviation}` + 
-    //   `\n\t差压差：${differentialDeviation}`
-    // );
+  if (tableData.value.length === 0 || historicalData.length === 0) {
+    ElMessage.warning("未找到指定时间的数据！");
+  } else {
+    // 处理数据，计算输差率等
+    tableData.value.forEach(async item => {
+      item.Difference = parseFloat((item.airIntake - item.airOutlet).toFixed(4));
+      item.DifferenceRate = parseFloat(((item.airIntake - item.airOutlet) / item.airIntake / 100).toFixed(4));
 
-    // 创建异常信息数组
-    const abnormalMessages = [];
-
-    // 温度警告判断
-    if (temperatureDeviation > 3 || temperatureDeviation < -3) {
-      abnormalMessages.push(`温度偏差 ${temperatureDeviation.toFixed(2)}`);
-      item.temperatureClass = 'data-status-error';
-    }
-
-    // 压力警告判断
-    if (pressureDeviation > 1 || pressureDeviation < -1) {
-      abnormalMessages.push(`压力偏差 ${pressureDeviation.toFixed(2)}`);
-      item.pressureClass = 'data-status-error';
-    }
-
-    // 差压警告判断
-    if (differentialDeviation > 1 || differentialDeviation < -1) {
-      abnormalMessages.push(`差压偏差 ${differentialDeviation.toFixed(2)}`);
-      item.differentialClass = 'data-status-error';
-    }
-
-    // 如果有异常信息则触发通知
-    if (abnormalMessages.length > 0) {
-      ElNotification({
-        title: '管线监测异常',
-        dangerouslyUseHTMLString: true,
-        message: `
-          <div style="line-height: 1.8;">
-            <b>管线名称：</b>${item.pipelineName}<br>
-            <b>异常指标：</b><br>
-            ${abnormalMessages.join('<br>')}
-          </div>
-        `,
-        type: 'warning',
-        position: 'bottom-right',
-        duration: 6000
+      // 计算偏差值
+      let temperatureDeviation;
+      let pressureDeviation;
+      let differentialDeviation;
+      historicalData.filter(i => {
+        if (i.pipelineName === item.pipelineName) {
+          temperatureDeviation = item.temperatures - i.temperatures;
+          pressureDeviation = item.pressure - i.pressure;
+          differentialDeviation = item.differentialPressure - i.differentialPressure;
+        }
       });
-    }
 
-    console.log(item.DifferenceRate);
+      // 创建异常信息数组
+      const abnormalMessages = [];
 
-    // 输差率判断
-    if (item.DifferenceRate > 0.001 || item.DifferenceRate < -0.001) {
+      // 温度警告判断
+      if (temperatureDeviation > 3 || temperatureDeviation < -3) {
+        abnormalMessages.push(`温度偏差 ${temperatureDeviation.toFixed(2)}`);
+        item.temperatureClass = 'data-status-error';
+      }
+
+      // 压力警告判断
+      if (pressureDeviation > 1 || pressureDeviation < -1) {
+        abnormalMessages.push(`压力偏差 ${pressureDeviation.toFixed(2)}`);
+        item.pressureClass = 'data-status-error';
+      }
+
+      // 差压警告判断
+      if (differentialDeviation > 1 || differentialDeviation < -1) {
+        abnormalMessages.push(`差压偏差 ${differentialDeviation.toFixed(2)}`);
+        item.differentialClass = 'data-status-error';
+      }
+
+      // 如果有异常信息则触发通知
+      if (abnormalMessages.length > 0) {
+        ElNotification({
+          title: '管线监测异常',
+          dangerouslyUseHTMLString: true,
+          message: `
+            <div style="line-height: 1.8;">
+              <b>管线名称：</b>${item.pipelineName}<br>
+              <b>异常指标：</b><br>
+              ${abnormalMessages.join('<br>')}
+            </div>
+          `,
+          type: 'warning',
+          position: 'bottom-right',
+          duration: 6000
+        });
+      }
+
+      // 输差率判断
+      if (item.DifferenceRate > 0.001 || item.DifferenceRate < -0.001) {
         item.status = '异常';
         item.statusClass = "data-status-error";
-    } else {
+      } else {
         item.status = '正常';
         item.statusClass = "data-status";
-    }
-    item.DifferenceRate = String((item.DifferenceRate * 100).toFixed(2)) + '%';
-  });
+      }
+      item.DifferenceRate = String((item.DifferenceRate * 100).toFixed(2)) + '%';
+    });
+  }
+};
+
+onMounted(async () => {
+  await handleRequestGetPipelineList();
+  try {
+    await handleTimeChange();
+  } catch (error) {
+    ElMessage.error("获取数据错误！");
+    console.error(error);
+  }
 });
 </script>
 
@@ -267,7 +299,6 @@ onMounted(async () => {
     background-color: var(--el-table-tr-bg-color) !important;
   } */
 }
-
 
 :deep(.el-table--border) {
   border-radius: 8px;
