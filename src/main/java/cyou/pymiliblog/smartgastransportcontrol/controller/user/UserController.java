@@ -6,7 +6,6 @@ import cyou.pymiliblog.smartgastransportcontrol.entity.user.UserEntity;
 import cyou.pymiliblog.smartgastransportcontrol.service.user.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -27,8 +26,42 @@ public class UserController<T> {
     private static final Logger log = LoggerFactory.getLogger(UserController.class);
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<T>> register() {
-        return ResponseEntity.ok(ApiResponse.success("未开发"));
+    public ResponseEntity<ApiResponse<String>> register(@RequestBody UserEntity entity) {
+        log.info("用户注册, request entity: {}", entity);
+        if (entity == null
+                || entity.getUsername() == null
+                || entity.getPasswordHash() == null) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.badRequest("参数残缺！"));
+        }
+        return userService.register(entity);
+    }
+
+    @PostMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<String>> update(@RequestBody UserEntity entity) {
+        log.info("更新用户数据, request entity: {}", entity);
+        if (entity == null
+                || entity.getUsername() == null
+                || entity.getPasswordHash() == null) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.badRequest("参数残缺！"));
+        }
+        return userService.update(entity);
+    }
+
+    @PostMapping(value = "/delete", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<String>> delete(@RequestBody Map<String, Object> request) {
+        log.info("删除用户, request: {}", request);
+        if (request == null || request.isEmpty() || !request.containsKey("id")) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.badRequest("参数残缺！"));
+        }
+        return userService.delete((Integer) request.get("id"));
+    }
+
+    @RequestMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<Object>> list() {
+        return userService.list();
     }
 
     @PostMapping(value = "/login", produces = MediaType.APPLICATION_JSON_VALUE)

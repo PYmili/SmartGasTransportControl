@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("pipeline")
+@RequestMapping("/pipeline")
 public class PipelineController {
 
     private final PipelineService pipelineService;
@@ -17,7 +17,7 @@ public class PipelineController {
         this.pipelineService = pipelineService;
     }
 
-    @RequestMapping(value = "list", produces = MediaType.APPLICATION_JSON_VALUE)
+    @RequestMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<Object>> list() {
         return pipelineService.list();
     }

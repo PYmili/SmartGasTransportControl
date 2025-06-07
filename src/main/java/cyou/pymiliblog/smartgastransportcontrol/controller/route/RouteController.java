@@ -45,7 +45,7 @@ public class RouteController<T> {
         return routeService.getByRange((Integer) request.get("current"), size);
     }
 
-    @PostMapping(value = "append", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/append", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<String>> append(@RequestBody RouteEntity entity) {
         log.info("线路添加 Router Entity: {}", entity);
         if (entity == null
@@ -57,7 +57,7 @@ public class RouteController<T> {
         return routeService.append(entity);
     }
 
-    @PostMapping(value = "delete", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/delete", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<String>> delete(@RequestBody Map<String, Object> request) {
         log.info("删除线路, request: {}", request);
         if (request == null || request.isEmpty()) {

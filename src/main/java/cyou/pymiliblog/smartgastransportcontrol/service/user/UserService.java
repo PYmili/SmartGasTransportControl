@@ -16,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -29,6 +30,41 @@ public class UserService<T> {
         this.userMapper = userMapper;
     }
 
+    public ResponseEntity<ApiResponse<Object>> list() {
+        return ResponseEntity.ok(ApiResponse.success(
+                "获取成功！",
+                userMapper.selectList(new QueryWrapper<>())
+        ));
+    }
+
+    public ResponseEntity<ApiResponse<String>> register(UserEntity entity) {
+        // 检查用户名是否已存在
+        LambdaQueryWrapper<UserEntity> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        lambdaQueryWrapper.eq(UserEntity::getUsername, entity.getUsername());
+        UserEntity existingUser = userMapper.selectOne(lambdaQueryWrapper);
+        if (existingUser != null) {
+            log.warn("用户 {} 已存在", entity.getUsername());
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ApiResponse.badRequest("用户名已存在！"));
+        }
+
+        // 将用户信息保存到数据库中
+        try {
+            int result = userMapper.insert(entity);
+            if (result > 0) {
+                return ResponseEntity.ok(ApiResponse.success("注册成功！"));
+            } else {
+                log.error("用户注册失败");
+                return ResponseEntity.internalServerError()
+                        .body(ApiResponse.internalError("注册失败！"));
+            }
+        } catch (Exception e) {
+            log.error("注册过程中发生错误：{}", e.toString());
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.internalError("注册失败！"));
+        }
+    }
+
     public ResponseEntity<ApiResponse<String>> login(RequestUserEntity userEntity) {
         LambdaQueryWrapper<UserEntity> lambdaQueryWrapper = new LambdaQueryWrapper<>();
         lambdaQueryWrapper.eq(UserEntity::getUsername, userEntity.getUsername());
@@ -38,6 +74,12 @@ public class UserService<T> {
             log.warn("用户 {} 不存在", userEntity.getUsername());
             return ResponseEntity.badRequest()
                     .body(ApiResponse.badRequest("用户不存在！"));
+        }
+        // 用户是否可用
+        if (!queryEntity.getAction()) {
+            log.info("用户已封禁！username: {}", userEntity.getUsername());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.badRequest("用户已封禁！"));
         }
         // 密码验证
         String passwordHash = queryEntity.getPasswordHash();
@@ -53,6 +95,66 @@ public class UserService<T> {
         map.put("id", queryEntity.getId());
         String jwt = JwtUtil.generateToken("login", map);
         return ResponseEntity.ok(ApiResponse.success("登录成功！", jwt));
+    }
+
+    public ResponseEntity<ApiResponse<String>> update(UserEntity entity) {
+        // 检查用户是否存在
+        LambdaQueryWrapper<UserEntity> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        lambdaQueryWrapper.eq(UserEntity::getId, entity.getId());
+        UserEntity existingUser = userMapper.selectOne(lambdaQueryWrapper);
+        if (existingUser == null) {
+            log.warn("[update] 用户 ID {} 不存在", entity.getId());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.badRequest("用户不存在！"));
+        }
+
+        // 对密码加盐
+        entity.setPasswordHash(PasswordUtil
+                .hashPassword(entity.getPasswordHash(), PasswordUtil.SALT));
+
+        // 更新用户信息
+        try {
+            int result = userMapper.updateById(entity);
+            if (result > 0) {
+                return ResponseEntity.ok(ApiResponse.success("用户信息更新成功！"));
+            } else {
+                log.error("用户信息更新失败");
+                return ResponseEntity.internalServerError()
+                        .body(ApiResponse.internalError("用户信息更新失败！"));
+            }
+        } catch (Exception e) {
+            log.error("更新用户信息过程中发生错误：{}", e.toString());
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.internalError("用户信息更新失败！"));
+        }
+    }
+
+    public ResponseEntity<ApiResponse<String>> delete(Integer id) {
+        // 检查用户是否存在
+        LambdaQueryWrapper<UserEntity> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        lambdaQueryWrapper.eq(UserEntity::getId, id);
+        UserEntity existingUser = userMapper.selectOne(lambdaQueryWrapper);
+        if (existingUser == null) {
+            log.warn("[delete] 用户 ID {} 不存在", id);
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.badRequest("用户不存在！"));
+        }
+
+        // 删除用户
+        try {
+            int result = userMapper.deleteById(id);
+            if (result > 0) {
+                return ResponseEntity.ok(ApiResponse.success("用户删除成功！"));
+            } else {
+                log.error("用户删除失败");
+                return ResponseEntity.internalServerError()
+                        .body(ApiResponse.internalError("用户删除失败！"));
+            }
+        } catch (Exception e) {
+            log.error("删除用户过程中发生错误：{}", e.toString());
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.internalError("用户删除失败！"));
+        }
     }
 
     public ResponseEntity<ApiResponse<String>> verify(String jwt) {
@@ -88,10 +190,16 @@ public class UserService<T> {
         QueryWrapper<UserEntity> queryWrapper = new QueryWrapper<>();
         queryWrapper.ge("id", id);
         queryWrapper.ge("username", username);
-        UserEntity entity = userMapper.selectOne(queryWrapper);
-        if (entity == null || entity.getUsername() == null) {
+        List<UserEntity> entity = userMapper.selectList(queryWrapper);
+        if (entity == null || entity.getFirst().getUsername() == null) {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.badRequest("验证失败！用户不存在"));
+        }
+        // 判断用户是否封禁
+        if (!entity.getFirst().getAction()) {
+            log.info("[verify] 用户已封禁！username: {}", entity.getFirst().getUsername());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.badRequest("用户已封禁！"));
         }
         return ResponseEntity.ok(ApiResponse.success("验证通过！"));
     }
